@@ -14,26 +14,20 @@
  *    limitations under the License.
  */
 
-package module
+package util
 
 import (
-	"github.com/version-fox/vfox/internal/config"
-	"github.com/version-fox/vfox/internal/plugin/luai/module/archiver"
-	"github.com/version-fox/vfox/internal/plugin/luai/module/html"
-	"github.com/version-fox/vfox/internal/plugin/luai/module/http"
-	"github.com/version-fox/vfox/internal/plugin/luai/module/json"
-	"github.com/version-fox/vfox/internal/plugin/luai/module/string"
-	lua "github.com/yuin/gopher-lua"
+	"testing"
 )
 
-type PreloadOptions struct {
-	Config *config.Config
-}
-
-func Preload(L *lua.LState, options *PreloadOptions) {
-	http.Preload(L, options.Config.Proxy)
-	json.Preload(L)
-	html.Preload(L)
-	string.Preload(L)
-	archiver.Preload(L)
+func TestIsTTY(t *testing.T) {
+	// IsTTY returns a boolean based on whether stdout is a terminal
+	// In test environment, it's typically false
+	result := IsTTY()
+	// Just verify it returns without panic
+	if result {
+		t.Log("Running in a TTY environment")
+	} else {
+		t.Log("Not running in a TTY environment")
+	}
 }

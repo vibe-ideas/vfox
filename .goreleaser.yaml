@@ -1,5 +1,6 @@
 # .goreleaser.yaml
 project_name: vfox
+
 before:
   hooks:
     - go mod tidy
@@ -42,24 +43,47 @@ changelog:
   filters:
     exclude:
       - "^test:"
-      - "^chore"
+      - "^chore:"
+      - "^ci:"
+      - "^style:"
       - "merge conflict"
       - Merge pull request
       - Merge remote-tracking branch
       - Merge branch
       - go mod tidy
   groups:
-    - title: "New Features"
-      regexp: '^feat:'
-      order: 100
-    - title: "Bug fixes"
-      regexp: '^fix:'
-      order: 200
-    - title: "Documentation updates"
-      regexp: '^doc:'
-      order: 400
-    - title: Other work
-      order: 9999
+    - title: "🚀 New Features"
+      regexp: '^feat(\(.+\))?:'
+      order: 0
+    - title: "🐛 Bug Fixes"
+      regexp: '^fix(\(.+\))?:'
+      order: 1
+    - title: "📝 Documentation"
+      regexp: '^docs?(\(.+\))?:'
+      order: 2
+    - title: "⚡ Performance Improvements"
+      regexp: '^perf(\(.+\))?:'
+      order: 3
+    - title: "♻️ Refactoring"
+      regexp: '^refactor(\(.+\))?:'
+      order: 4
+    - title: "🎨 Styling"
+      regexp: '^style(\(.+\))?:'
+      order: 5
+    - title: "🧪 Tests"
+      regexp: '^test(\(.+\))?:'
+      order: 6
+    - title: "🔧 Chores"
+      regexp: '^chore(\(.+\))?:'
+      order: 7
+    - title: "📦 Build & CI"
+      regexp: '^(build|ci)(\(.+\))?:'
+      order: 8
+    - title: "⬆️ Dependencies"
+      regexp: '^(deps|dep)(\(.+\))?:'
+      order: 9
+    - title: "Other Changes"
+      order: 999
 
 archives:
   - name_template: >-
@@ -90,7 +114,6 @@ brews:
       owner: version-fox
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TOKEN }}"
-    folder: Formula
     goarm: "7"
     homepage: https://github.com/version-fox/vfox
     description: A cross-platform SDK version manager with a simple cli.
@@ -178,8 +201,21 @@ signs:
       - --yes
 
 release:
-  draft: false
-  prerelease: true
+  draft: true
+  prerelease: auto
   name_template: "v{{ .Version }}"
+  header: |
+    ## 🎉 What's Changed in v{{ .Version }}
+    
   footer: |
+    
+    ---
     **Full Changelog**: https://github.com/version-fox/vfox/compare/{{ .PreviousTag }}...{{ .Tag }}
+    
+    ## Installation
+    
+    See [installation guide](https://vfox.dev/guides/quick-start.html) for more details.
+    
+    ## Thanks
+    
+    Thanks to all contributors who made this release possible! 🎉

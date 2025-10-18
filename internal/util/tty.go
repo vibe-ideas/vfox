@@ -14,26 +14,15 @@
  *    limitations under the License.
  */
 
-package module
+package util
 
 import (
-	"github.com/version-fox/vfox/internal/config"
-	"github.com/version-fox/vfox/internal/plugin/luai/module/archiver"
-	"github.com/version-fox/vfox/internal/plugin/luai/module/html"
-	"github.com/version-fox/vfox/internal/plugin/luai/module/http"
-	"github.com/version-fox/vfox/internal/plugin/luai/module/json"
-	"github.com/version-fox/vfox/internal/plugin/luai/module/string"
-	lua "github.com/yuin/gopher-lua"
+	"os"
+
+	"golang.org/x/term"
 )
 
-type PreloadOptions struct {
-	Config *config.Config
-}
-
-func Preload(L *lua.LState, options *PreloadOptions) {
-	http.Preload(L, options.Config.Proxy)
-	json.Preload(L)
-	html.Preload(L)
-	string.Preload(L)
-	archiver.Preload(L)
+// IsTTY checks if the process is running in a TTY (interactive terminal)
+func IsTTY() bool {
+	return term.IsTerminal(int(os.Stdout.Fd()))
 }

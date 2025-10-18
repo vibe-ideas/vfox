@@ -17,12 +17,13 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"os"
 	"strings"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"github.com/version-fox/vfox/internal"
 	"github.com/version-fox/vfox/internal/base"
 	"github.com/version-fox/vfox/internal/printer"
@@ -78,6 +79,18 @@ func RunSearch(sdkName string, availableArgs []string) error {
 		installedVersions.Add(string(version))
 	}
 
+	if util.IsNonInteractiveTerminal() {
+		fmt.Println("Available versions:")
+		for _, option := range options {
+			label := option.Value
+			if installedVersions.Contains(option.Key) {
+				label = fmt.Sprintf("%s (installed)", label)
+			}
+			fmt.Printf(" - %s\n", label)
+		}
+		return nil
+	}
+
 	_, height, _ := terminal.GetSize(int(os.Stdout.Fd()))
 	kvSelect := printer.PageKVSelect{
 		TopText:          "Please select a version of " + sdkName + " to install",
@@ -110,10 +123,10 @@ func RunSearch(sdkName string, availableArgs []string) error {
 	return source.Install(base.Version(version.Key))
 }
 
-func searchCmd(ctx *cli.Context) error {
-	sdkName := ctx.Args().First()
+func searchCmd(ctx context.Context, cmd *cli.Command) error {
+	sdkName := cmd.Args().First()
 	if sdkName == "" {
 		return cli.Exit("sdk name is required", 1)
 	}
-	return RunSearch(sdkName, ctx.Args().Tail())
+	return RunSearch(sdkName, cmd.Args().Tail())
 }

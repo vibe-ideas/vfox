@@ -17,13 +17,14 @@
 package commands
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/pterm/pterm"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"github.com/version-fox/vfox/internal"
 	"github.com/version-fox/vfox/internal/base"
 	"github.com/version-fox/vfox/internal/logger"
@@ -51,14 +52,14 @@ var Install = &cli.Command{
 	Category: CategorySDK,
 }
 
-func installCmd(ctx *cli.Context) error {
-	yes := ctx.Bool("yes")
+func installCmd(ctx context.Context, cmd *cli.Command) error {
+	yes := cmd.Bool("yes")
 
-	if ctx.Bool("all") {
+	if cmd.Bool("all") {
 		return installAll(yes)
 	}
 
-	args := ctx.Args()
+	args := cmd.Args()
 	if args.First() == "" {
 		return cli.Exit("sdk name is required", 1)
 	}
@@ -96,6 +97,9 @@ func installCmd(ctx *cli.Context) error {
 			var resolvedVersion = manager.ResolveVersion(sdk.Name, version)
 			logger.Debugf("resolved version: %s\n", resolvedVersion)
 			if resolvedVersion == "" {
+				if util.IsNonInteractiveTerminal() {
+					return cli.Exit(fmt.Sprintf("install requires specifying a version for %s", name), 1)
+				}
 				showAvailable, _ := pterm.DefaultInteractiveConfirm.Show(fmt.Sprintf("No %s version provided, do you want to select a version to install?", pterm.Red(name)))
 				if showAvailable {
 					err := RunSearch(name, []string{})
@@ -142,9 +146,13 @@ func installAll(autoConfirm bool) error {
 	printSdk(sdks, nil)
 
 	if !autoConfirm {
-		if result, _ := pterm.DefaultInteractiveConfirm.
+		if util.IsNonInteractiveTerminal() {
+			return cli.Exit("Use the -y flag to automatically confirm installation in non-interactive environments", 1)
+		}
+		result, _ := pterm.DefaultInteractiveConfirm.
 			WithDefaultValue(true).
-			Show("Do you want to install these plugins and SDKs?"); !result {
+			Show("Do you want to install these plugins and SDKs?")
+		if !result {
 			return nil
 		}
 	}

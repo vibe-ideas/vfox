@@ -17,15 +17,18 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/version-fox/vfox/internal/util"
 
 	"github.com/pterm/pterm"
 	"github.com/version-fox/vfox/internal"
 	"github.com/version-fox/vfox/internal/base"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var Use = &cli.Command{
@@ -53,8 +56,8 @@ var Use = &cli.Command{
 	Category: CategorySDK,
 }
 
-func useCmd(ctx *cli.Context) error {
-	sdkArg := ctx.Args().First()
+func useCmd(ctx context.Context, cmd *cli.Command) error {
+	sdkArg := cmd.Args().First()
 	if len(sdkArg) == 0 {
 		return fmt.Errorf("invalid parameter. format: <sdk-name>[@<version>]")
 	}
@@ -72,9 +75,9 @@ func useCmd(ctx *cli.Context) error {
 	}
 
 	scope := base.Session
-	if ctx.IsSet("global") {
+	if cmd.IsSet("global") {
 		scope = base.Global
-	} else if ctx.IsSet("project") {
+	} else if cmd.IsSet("project") {
 		scope = base.Project
 	} else {
 		scope = base.Session
@@ -93,6 +96,12 @@ func useCmd(ctx *cli.Context) error {
 		var arr []string
 		for _, version := range list {
 			arr = append(arr, string(version))
+		}
+		if len(arr) == 0 {
+			return fmt.Errorf("no versions available for %s", name)
+		}
+		if util.IsNonInteractiveTerminal() {
+			return cli.Exit("Please specify a version to use in non-interactive environments", 1)
 		}
 		selectPrinter := pterm.InteractiveSelectPrinter{
 			TextStyle:     &pterm.ThemeDefault.DefaultText,

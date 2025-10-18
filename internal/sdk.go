@@ -163,7 +163,17 @@ func (b *Sdk) Install(version base.Version) error {
 	}
 	success = true
 	pterm.Printf("Install %s success! \n", pterm.LightGreen(label))
-	pterm.Printf("Please use `%s` to use it.\n", pterm.LightBlue(fmt.Sprintf("vfox use %s", label)))
+	useCommand := fmt.Sprintf("vfox use %s", label)
+	pterm.Printf("Please use `%s` to use it.\n", pterm.LightBlue(useCommand))
+	
+	// Copy command to clipboard in TTY mode
+	if util.IsTTY() {
+		if err := util.CopyToClipboard(useCommand); err == nil {
+			pterm.Printf("%s\n", pterm.LightYellow("Copied to clipboard, you can paste it now."))
+		}
+		// Silently ignore clipboard errors (not supported, utility not found, etc.)
+	}
+	
 	return nil
 }
 
@@ -509,7 +519,13 @@ func (b *Sdk) useInHook(version base.Version, scope base.UseScope) error {
 	if err = multiToolVersion.Save(); err != nil {
 		return fmt.Errorf("failed to save tool versions, err:%w", err)
 	}
-	if err = b.ToLinkPackage(version, base.ShellLocation); err != nil {
+	// Use GlobalLocation for global scope to create stable symlink at .version-fox/cache/<sdk>/current
+	// Use ShellLocation for other scopes to create symlink in temporary shell-specific directory
+	linkLocation := base.ShellLocation
+	if scope == base.Global {
+		linkLocation = base.GlobalLocation
+	}
+	if err = b.ToLinkPackage(version, linkLocation); err != nil {
 		return err
 	}
 
@@ -783,6 +799,76 @@ func (b *Sdk) ClearCurrentEnv() error {
 	}
 	for _, tv := range toolVersion {
 		delete(tv.Record, b.Name)
+	}
+	return nil
+}
+
+// Unuse removes the version setting for the SDK from the specified scope
+func (b *Sdk) Unuse(scope base.UseScope) error {
+	var multiToolVersion toolset.MultiToolVersions
+
+	if scope == base.Global {
+		toolVersion, err := toolset.NewToolVersion(b.sdkManager.PathMeta.HomePath)
+		if err != nil {
+			return fmt.Errorf("failed to read tool versions, err:%w", err)
+		}
+
+		// Check if the SDK is currently set globally
+		if oldVersion, ok := toolVersion.Record[b.Name]; ok {
+			// Clear global environment for the current version
+			b.clearGlobalEnv(base.Version(oldVersion))
+
+			// Remove shims for the current version
+			envKeys, err := b.MockEnvKeys(base.Version(oldVersion), base.GlobalLocation)
+			if err == nil {
+				if paths, err := envKeys.Paths.ToBinPaths(); err == nil {
+					for _, p := range paths.Slice() {
+						if err = shim.NewShim(p, b.sdkManager.PathMeta.GlobalShimsPath).Clear(); err != nil {
+							// Log but don't fail on shim cleanup errors
+							logger.Debugf("Failed to clear shim %s: %v\n", p, err)
+						}
+					}
+				}
+			}
+
+			// Flush environment changes
+			_ = b.sdkManager.EnvManager.Flush()
+		}
+
+		// Remove from global tool versions
+		delete(toolVersion.Record, b.Name)
+		multiToolVersion = append(multiToolVersion, toolVersion)
+
+	} else if scope == base.Project {
+		toolVersion, err := toolset.NewToolVersion(b.sdkManager.PathMeta.WorkingDirectory)
+		if err != nil {
+			return fmt.Errorf("failed to read tool versions, err:%w", err)
+		}
+
+		// Remove from project tool versions
+		delete(toolVersion.Record, b.Name)
+		multiToolVersion = append(multiToolVersion, toolVersion)
+	}
+
+	// For session scope, or in addition to global/project scope,
+	// also remove from the session level
+	sessionToolVersion, err := toolset.NewToolVersion(b.sdkManager.PathMeta.CurTmpPath)
+	if err != nil {
+		return fmt.Errorf("failed to read tool versions, err:%w", err)
+	}
+	delete(sessionToolVersion.Record, b.Name)
+	multiToolVersion = append(multiToolVersion, sessionToolVersion)
+
+	// Save all modified tool version files
+	if err = multiToolVersion.Save(); err != nil {
+		return fmt.Errorf("failed to save tool versions, err:%w", err)
+	}
+
+	pterm.Printf("Unset %s successfully.\n", pterm.LightGreen(b.Name))
+
+	// Reopen shell to apply changes if not in hook environment
+	if !env.IsHookEnv() {
+		return shell.Open(os.Getppid())
 	}
 	return nil
 }
